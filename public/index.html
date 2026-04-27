@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pako Newsletter</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141418;
+      --border: #222228;
+      --accent: #e8ff47;
+      --accent2: #47c8ff;
+      --text: #f0f0f0;
+      --muted: #888;
+      --danger: #ff4747;
+      --success: #47ff9c;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* HEADER */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+    }
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--accent); }
+    .smtp-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      transition: border-color 0.2s;
+    }
+    .smtp-status:hover { border-color: var(--accent2); }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    .status-dot.ok { background: var(--success); box-shadow: 0 0 8px var(--success); }
+    .status-dot.err { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+    /* MAIN LAYOUT */
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: calc(100vh - 65px);
+    }
+
+    /* SIDEBAR — subscribers */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      background: var(--surface);
+    }
+    .sidebar-header {
+      padding: 20px 24px 14px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 2;
+    }
+    .sidebar-header h2 {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .search-box {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus { border-color: var(--accent2); }
+    .select-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .select-actions button {
+      flex: 1;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 0;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .select-actions button:hover { border-color: var(--accent); color: var(--accent); }
+
+    .subscriber-list { padding: 8px; }
+    .subscriber-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .subscriber-item:hover { background: rgba(255,255,255,0.04); }
+    .subscriber-item.selected { background: rgba(232,255,71,0.07); }
+    .subscriber-item.selected .check { border-color: var(--accent); background: var(--accent); }
+    .subscriber-item.selected .check::after { display: block; }
+
+    .check {
+      width: 16px; height: 16px;
+      border: 1.5px solid var(--border);
+      border-radius: 4px;
+      flex-shrink: 0;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .check::after {
+      content: '';
+      display: none;
+      position: absolute;
+      top: 2px; left: 4px;
+      width: 5px; height: 8px;
+      border: 2px solid #000;
+      border-top: none;
+      border-left: none;
+      transform: rotate(45deg);
+    }
+    .sub-info { flex: 1; min-width: 0; }
+    .sub-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sub-email {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .loading-msg, .empty-msg {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    /* COMPOSE AREA */
+    .compose {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .compose-header {
+      padding: 24px 32px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .compose-header h1 {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .compose-header h1 span { color: var(--accent); }
+    .recipient-badge {
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--accent2);
+      background: rgba(71,200,255,0.08);
+      border: 1px solid rgba(71,200,255,0.2);
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    .compose-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .field-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      padding: 12px 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field-input:focus { border-color: var(--accent); }
+
+    .html-editor {
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 240px;
+      line-height: 1.6;
+    }
+
+    .tip-bar {
+      background: rgba(71,200,255,0.06);
+      border: 1px solid rgba(71,200,255,0.15);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--accent2);
+      line-height: 1.7;
+    }
+    .tip-bar strong { color: var(--text); }
+
+    /* PREVIEW */
+    .preview-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .preview-bar {
+      background: var(--surface);
+      padding: 8px 16px;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .preview-bar button {
+      background: none;
+      border: none;
+      color: var(--accent2);
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    #preview-iframe {
+      width: 100%;
+      height: 240px;
+      border: none;
+      background: #fff;
+    }
+
+    /* FOOTER ACTIONS */
+    .compose-footer {
+      padding: 16px 32px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .send-btn {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 12px 32px;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .send-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,255,71,0.3); }
+    .send-btn:disabled { opacity: 0.4; transform: none; box-shadow: none; cursor: not-allowed; }
+
+    /* TOAST */
+    #toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      max-width: 380px;
+      padding: 14px 20px;
+      border-radius: 10px;
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.3s;
+      z-index: 100;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: rgba(71,255,156,0.15); border: 1px solid rgba(71,255,156,0.4); color: var(--success); }
+    #toast.error { background: rgba(255,71,71,0.15); border: 1px solid rgba(255,71,71,0.4); color: var(--danger); }
+
+    /* SPINNER */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .send-btn.loading .spinner { display: block; }
+    .send-btn.loading .btn-text { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">pako<span>.</span>mail</div>
+  <div class="smtp-status" onclick="testConnection()" title="Click to test SMTP">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-label">test connection</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Waitlist <span id="count-badge" style="color:var(--text)"></span></h2>
+      <input class="search-box" id="search" type="text" placeholder="Search by name or email…" oninput="filterSubscribers()" />
+      <div class="select-actions">
+        <button onclick="selectAll()">Select All</button>
+        <button onclick="deselectAll()">Deselect All</button>
+      </div>
+    </div>
+    <div class="subscriber-list" id="subscriber-list">
+      <div class="loading-msg">Loading subscribers…</div>
+    </div>
+  </aside>
+
+  <!-- COMPOSE -->
+  <main class="compose">
+    <div class="compose-header">
+      <h1>Send <span>Newsletter</span></h1>
+      <div class="recipient-badge">
+        <span id="recipient-count">0</span> recipient(s) selected — <span id="recipient-mode">select from list or send to all</span>
+      </div>
+    </div>
+
+    <div class="compose-body">
+      <!-- Subject -->
+      <div>
+        <div class="field-label">Subject Line</div>
+        <input class="field-input" id="subject" type="text" placeholder="Your email subject…" />
+      </div>
+
+      <!-- HTML Body -->
+      <div>
+        <div class="field-label">Email Body (HTML)</div>
+        <textarea class="field-input html-editor" id="html-body" placeholder="<h1>Hello {{first_name}}!</h1>&#10;<p>Your message here…</p>" oninput="updatePreview()"></textarea>
+      </div>
+
+      <!-- Tips -->
+      <div class="tip-bar">
+        <strong>Personalisation tokens:</strong><br/>
+        <code>{{first_name}}</code> · <code>{{surname}}</code> · <code>{{email}}</code><br/>
+        These are replaced per recipient when sending.
+      </div>
+
+      <!-- Preview -->
+      <div class="preview-wrap">
+        <div class="preview-bar">
+          <span>EMAIL PREVIEW</span>
+          <button onclick="updatePreview()">↻ Refresh</button>
+        </div>
+        <iframe id="preview-iframe" sandbox="allow-same-origin"></iframe>
+      </div>
+    </div>
+
+    <div class="compose-footer">
+      <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">
+        Sending to: <span id="footer-target" style="color:var(--accent2)">no recipients selected</span>
+      </div>
+      <button class="send-btn" id="send-btn" onclick="sendNewsletter()">
+        <span class="btn-text">Send Newsletter →</span>
+        <div class="spinner"></div>
+      </button>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  let allSubscribers = [];
+  let selectedIds = new Set();
+
+  // Load subscribers
+  async function loadSubscribers() {
+    try {
+      const res = await fetch('/api/subscribers');
+      const data = await res.json();
+      allSubscribers = data;
+      renderSubscribers(allSubscribers);
+      document.getElementById('count-badge').textContent = `(${data.length})`;
+    } catch (e) {
+      document.getElementById('subscriber-list').innerHTML = `<div class="empty-msg">Failed to load subscribers.</div>`;
+    }
+  }
+
+  function renderSubscribers(list) {
+    const el = document.getElementById('subscriber-list');
+    if (!list.length) {
+      el.innerHTML = `<div class="empty-msg">No subscribers found.</div>`;
+      return;
+    }
+    el.innerHTML = list.map(s => `
+      <div class="subscriber-item ${selectedIds.has(s.id) ? 'selected' : ''}" onclick="toggleSubscriber('${s.id}')" data-id="${s.id}">
+        <div class="check"></div>
+        <div class="sub-info">
+          <div class="sub-name">${s.first_name} ${s.surname}</div>
+          <div class="sub-email">${s.email}</div>
+        </div>
+      </div>
+    `).join('');
+    updateRecipientBadge();
+  }
+
+  function filterSubscribers() {
+    const q = document.getElementById('search').value.toLowerCase();
+    const filtered = allSubscribers.filter(s =>
+      s.email.toLowerCase().includes(q) ||
+      s.first_name.toLowerCase().includes(q) ||
+      s.surname.toLowerCase().includes(q)
+    );
+    renderSubscribers(filtered);
+  }
+
+  function toggleSubscriber(id) {
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    filterSubscribers(); // re-render with filter
+    updateRecipientBadge();
+  }
+
+  function selectAll() {
+    allSubscribers.forEach(s => selectedIds.add(s.id));
+    filterSubscribers();
+    updateRecipientBadge();
+  }
+
+  function deselectAll() {
+    selectedIds.clear();
+    filterSubscribers();
+    updateRecipientBadge();
+  }
+
+  function updateRecipientBadge() {
+    const count = selectedIds.size;
+    document.getElementById('recipient-count').textContent = count;
+    const mode = count === 0 ? 'select from list or send to all' : `${count} selected`;
+    document.getElementById('recipient-mode').textContent = mode;
+
+    const footerTarget = document.getElementById('footer-target');
+    if (count === 0) footerTarget.textContent = 'everyone on waitlist (all)';
+    else if (count === allSubscribers.length) footerTarget.textContent = 'all subscribers';
+    else footerTarget.textContent = `${count} selected subscriber(s)`;
+  }
+
+  function updatePreview() {
+    const html = document.getElementById('html-body').value;
+    const iframe = document.getElementById('preview-iframe');
+    const sample = html
+      .replace(/\{\{first_name\}\}/g, 'Alex')
+      .replace(/\{\{surname\}\}/g, 'Mokoena')
+      .replace(/\{\{email\}\}/g, 'alex@example.com');
+    iframe.srcdoc = `<style>body{font-family:sans-serif;padding:20px;color:#111}</style>${sample || '<p style="color:#aaa">Your preview will appear here…</p>'}`;
+  }
+
+  async function sendNewsletter() {
+    const subject = document.getElementById('subject').value.trim();
+    const html = document.getElementById('html-body').value.trim();
+
+    if (!subject) return showToast('Please enter a subject line.', 'error');
+    if (!html) return showToast('Please enter email body HTML.', 'error');
+
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    btn.classList.add('loading');
+
+    try {
+      const body = {
+        subject,
+        html,
+        recipientIds: selectedIds.size > 0 ? [...selectedIds] : [],
+      };
+
+      const res = await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (res.ok) showToast(`✓ ${data.message}`, 'success');
+      else showToast(`✗ ${data.error}`, 'error');
+    } catch (e) {
+      showToast('Network error — could not reach server.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('loading');
+    }
+  }
+
+  async function testConnection() {
+    const dot = document.getElementById('status-dot');
+    const label = document.getElementById('status-label');
+    dot.className = 'status-dot';
+    label.textContent = 'testing…';
+    try {
+      const res = await fetch('/api/test-connection', { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        dot.className = 'status-dot ok';
+        label.textContent = 'SMTP connected';
+        showToast('✓ SMTP connection verified!', 'success');
+      } else {
+        dot.className = 'status-dot err';
+        label.textContent = 'SMTP error';
+        showToast(`✗ ${data.message}`, 'error');
+      }
+    } catch {
+      dot.className = 'status-dot err';
+      label.textContent = 'unreachable';
+    }
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `show ${type}`;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.className = '', 5000);
+  }
+
+  // Init
+  loadSubscribers();
+  updatePreview();
+</script>
+</body>
+</html>
